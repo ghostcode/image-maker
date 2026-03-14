@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>色彩工坊 - 图片生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #12121a;
+      --fg: #e8e8ed;
+      --muted: #6b6b7a;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.15);
+      --card: #16161f;
+      --border: #2a2a3a;
+      --error: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 流动背景 */
+    .bg-flow {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .bg-flow::before,
+    .bg-flow::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.4;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .bg-flow::before {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, #00d4aa 0%, transparent 70%);
+      top: -200px;
+      right: -200px;
+    }
+
+    .bg-flow::after {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, #ff6b35 0%, transparent 70%);
+      bottom: -150px;
+      left: -150px;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      33% {
+        transform: translate(30px, -30px) scale(1.05);
+      }
+
+      66% {
+        transform: translate(-20px, 20px) scale(0.95);
+      }
+    }
+
+    /* 网格背景 */
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* 主内容 */
+    .main-content {
+      position: relative;
+      z-index: 10;
+    }
+
+    /* 卡片样式 */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* 标签按钮 */
+    .tab-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .tab-btn:hover {
+      color: var(--fg);
+      background: var(--accent-dim);
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    /* 输入控件 */
+    .input-field {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--fg);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    /* 颜色选择器 */
+    .color-picker-wrap {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      transition: all 0.2s ease;
+    }
+
+    .color-picker-wrap:hover {
+      border-color: var(--accent);
+      transform: scale(1.05);
+    }
+
+    .color-picker-wrap input[type="color"] {
+      position: absolute;
+      inset: -10px;
+      width: calc(100% + 20px);
+      height: calc(100% + 20px);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* 滑块 */
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 按钮 */
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 212, 170, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--fg);
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* 预览区域 */
+    .preview-area {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      aspect-ratio: 16/10;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .preview-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 预设颜色 */
+    .preset-color {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .preset-color:hover {
+      transform: scale(1.15);
+      border-color: var(--fg);
+    }
+
+    /* 颜色条目 */
+    .color-stop {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .remove-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: var(--error);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .remove-btn:hover {
+      background: var(--error);
+      color: white;
+    }
+
+    /* 尺寸预设 */
+    .size-preset {
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .size-preset:hover {
+      border-color: var(--accent);
+      color: var(--fg);
+    }
+
+    .size-preset.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* 入场动画 */
+    .fade-up {
+      animation: fadeUp 0.6s ease forwards;
+      opacity: 0;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.2s;
+    }
+
+    .delay-3 {
+      animation-delay: 0.3s;
+    }
+
+    /* 隐藏的控制面板 */
+    .control-section {
+      display: none;
+    }
+
+    .control-section.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* 响应式 */
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* 标签 */
+    .label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 背景 -->
+  <div class="bg-flow"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- 主内容 -->
+  <div class="main-content min-h-screen p-4 md:p-8">
+    <!-- 头部 -->
+    <header class="max-w-7xl mx-auto mb-8 fade-up">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight" style="color: var(--fg);">色彩工坊</h1>
+          <p class="text-sm mt-1" style="color: var(--muted);">生成纯色、渐变、图案图片</p>
+        </div>
+        <div class="flex items-center gap-3 mono text-sm" style="color: var(--muted);">
+          <span id="canvasSize">1920 × 1080</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主网格 -->
+    <div class="main-grid max-w-7xl mx-auto grid gap-6" style="grid-template-columns: 380px 1fr;">
+      <!-- 控制面板 -->
+      <aside class="panel p-6 fade-up delay-1 h-fit">
+        <!-- 模式切换 -->
+        <div class="mb-6">
+          <div class="flex flex-wrap gap-2">
+            <button class="tab-btn active" data-mode="solid">纯色</button>
+            <button class="tab-btn" data-mode="linear">线性渐变</button>
+            <button class="tab-btn" data-mode="radial">径向渐变</button>
+            <button class="tab-btn" data-mode="stripe">条纹</button>
+            <button class="tab-btn" data-mode="grid">网格</button>
+          </div>
+        </div>
+
+        <!-- 纯色控制 -->
+        <div id="solid-controls" class="control-section active">
+          <label class="label">选择颜色</label>
+          <div class="flex items-center gap-4 mb-4">
+            <div class="color-picker-wrap">
+              <input type="color" id="solidColor" value="#00d4aa">
+            </div>
+            <input type="text" class="input-field flex-1" id="solidColorText" value="#00d4aa" placeholder="#000000">
+          </div>
+
+          <!-- 预设颜色 -->
+          <label class="label">预设颜色</label>
+          <div class="flex flex-wrap gap-2 mb-4" id="presetColors">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+
+        <!-- 线性渐变控制 -->
+        <div id="linear-controls" class="control-section">
+          <label class="label">渐变角度: <span id="linearAngleValue">90</span>°</label>
+          <input type="range" class="slider mb-4" id="linearAngle" min="0" max="360" value="90">
+
+          <label class="label">渐变色标</label>
+          <div id="linearStops" class="mb-4">
+            <!-- 动态生成 -->
+          </div>
+          <button class="btn-secondary w-full" id="addLinearStop">添加色标</button>
+        </div>
+
+        <!-- 径向渐变控制 -->
+        <div id="radial-controls" class="control-section">
+          <label class="label">渐变半径: <span id="radialRadiusValue">50</span>%</label>
+          <input type="range" class="slider mb-4" id="radialRadius" min="10" max="100" value="50">
+
+          <label class="label">中心位置</label>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <span class="text-xs" style="color: var(--muted);">X: <span id="radialCenterXValue">50</span>%</span>
+              <input type="range" class="slider" id="radialCenterX" min="0" max="100" value="50">
+            </div>
+            <div>
+              <span class="text-xs" style="color: var(--muted);">Y: <span id="radialCenterYValue">50</span>%</span>
+              <input type="range" class="slider" id="radialCenterY" min="0" max="100" value="50">
+            </div>
+          </div>
+
+          <label class="label">渐变色标</label>
+          <div id="radialStops" class="mb-4">
+            <!-- 动态生成 -->
+          </div>
+          <button class="btn-secondary w-full" id="addRadialStop">添加色标</button>
+        </div>
+
+        <!-- 条纹控制 -->
+        <div id="stripe-controls" class="control-section">
+          <label class="label">条纹宽度: <span id="stripeWidthValue">40</span>px</label>
+          <input type="range" class="slider mb-4" id="stripeWidth" min="5" max="200" value="40">
+
+          <label class="label">条纹角度: <span id="stripeAngleValue">45</span>°</label>
+          <input type="range" class="slider mb-4" id="stripeAngle" min="0" max="180" value="45">
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="label">颜色 1</label>
+              <div class="color-picker-wrap" style="width: 100%; height: 50px;">
+                <input type="color" id="stripeColor1" value="#00d4aa">
+              </div>
+            </div>
+            <div>
+              <label class="label">颜色 2</label>
+              <div class="color-picker-wrap" style="width: 100%; height: 50px;">
+                <input type="color" id="stripeColor2" value="#0a0a0f">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 网格控制 -->
+        <div id="grid-controls" class="control-section">
+          <label class="label">格子大小: <span id="gridSizeValue">50</span>px</label>
+          <input type="range" class="slider mb-4" id="gridSize" min="10" max="200" value="50">
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="label">颜色 1</label>
+              <div class="color-picker-wrap" style="width: 100%; height: 50px;">
+                <input type="color" id="gridColor1" value="#1a1a2e">
+              </div>
+            </div>
+            <div>
+              <label class="label">颜色 2</label>
+              <div class="color-picker-wrap" style="width: 100%; height: 50px;">
+                <input type="color" id="gridColor2" value="#16213e">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 尺寸设置 -->
+        <div class="mt-6 pt-6" style="border-top: 1px solid var(--border);">
+          <label class="label">输出尺寸</label>
+          <div class="flex gap-2 mb-3 flex-wrap">
+            <button class="size-preset" data-w="1920" data-h="1080">1920×1080</button>
+            <button class="size-preset" data-w="1080" data-h="1920">1080×1920</button>
+            <button class="size-preset" data-w="1080" data-h="1080">1080×1080</button>
+            <button class="size-preset" data-w="2560" data-h="1440">2560×1440</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">宽度</label>
+              <input type="number" class="input-field" id="customWidth" value="1920" min="100" max="8000">
+            </div>
+            <div>
+              <label class="label">高度</label>
+              <input type="number" class="input-field" id="customHeight" value="1080" min="100" max="8000">
+            </div>
+          </div>
+        </div>
+
+        <!-- 下载按钮 -->
+        <div class="mt-6">
+          <button class="btn-primary w-full justify-center" id="downloadBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            下载图片
+          </button>
+        </div>
+      </aside>
+
+      <!-- 预览区域 -->
+      <main class="fade-up delay-2">
+        <div class="panel p-4">
+          <div class="preview-area">
+            <canvas id="previewCanvas" class="preview-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 预设配色方案 -->
+        <div class="panel p-4 mt-6 fade-up delay-3">
+          <h3 class="text-sm font-medium mb-4" style="color: var(--muted);">精选配色方案</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="colorSchemes">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 初始化数据 ====================
+    const presetColors = [
+      '#00d4aa', '#ff6b35', '#6366f1', '#ec4899',
+      '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
+      '#ef4444', '#14b8a6', '#f97316', '#06b6d4',
+      '#000000', '#ffffff', '#1a1a2e', '#16213e'
+    ];
+
+    const colorSchemes = [
+      { name: '日落', colors: ['#ff6b35', '#f7931e', '#fbb03b'] },
+      { name: '海洋', colors: ['#0077b6', '#00b4d8', '#90e0ef'] },
+      { name: '森林', colors: ['#2d6a4f', '#40916c', '#74c69d'] },
+      { name: '紫夜', colors: ['#240046', '#3c096c', '#5a189a'] },
+      { name: '极光', colors: ['#00d4aa', '#00b4d8', '#0077b6'] },
+      { name: '火焰', colors: ['#dc2f02', '#e85d04', '#f48c06'] },
+      { name: '薄荷', colors: ['#0aadad', '#09c7c7', '#00e1e1'] },
+      { name: '暗夜', colors: ['#0d1b2a', '#1b263b', '#415a77'] }
+    ];
+
+    // ==================== 状态管理 ====================
+    let currentMode = 'solid';
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+
+    let linearStops = [
+      { color: '#00d4aa', position: 0 },
+      { color: '#0077b6', position: 100 }
+    ];
+
+    let radialStops = [
+      { color: '#00d4aa', position: 0 },
+      { color: '#0a0a0f', position: 100 }
+    ];
+
+    // ==================== DOM 元素 ====================
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+    const sizeDisplay = document.getElementById('canvasSize');
+
+    // ==================== 初始化 ====================
+    function init() {
+      renderPresetColors();
+      renderColorSchemes();
+      setupEventListeners();
+      updateCanvas();
+    }
+
+    // ==================== 渲染预设颜色 ====================
+    function renderPresetColors() {
+      const container = document.getElementById('presetColors');
+      container.innerHTML = presetColors.map(color => `
+        <div class="preset-color" style="background: ${color};" data-color="${color}"></div>
+      `).join('');
+
+      container.querySelectorAll('.preset-color').forEach(el => {
+        el.addEventListener('click', () => {
+          const color = el.dataset.color;
+          document.getElementById('solidColor').value = color;
+          document.getElementById('solidColorText').value = color;
+          updateCanvas();
+        });
+      });
+    }
+
+    // ==================== 渲染配色方案 ====================
+    function renderColorSchemes() {
+      const container = document.getElementById('colorSchemes');
+      container.innerHTML = colorSchemes.map((scheme, index) => `
+        <button class="scheme-btn p-3 rounded-xl text-left transition-all hover:scale-105" 
+                style="background: linear-gradient(135deg, ${scheme.colors.join(', ')});"
+                data-index="${index}">
+          <span class="text-xs font-medium text-white/90 drop-shadow-lg">${scheme.name}</span>
+        </button>
+      `).join('');
+
+      container.querySelectorAll('.scheme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const index = parseInt(btn.dataset.index);
+          applyColorScheme(colorSchemes[index]);
+        });
+      });
+    }
+
+    // ==================== 应用配色方案 ====================
+    function applyColorScheme(scheme) {
+      if (currentMode === 'solid') {
+        const color = scheme.colors[0];
+        document.getElementById('solidColor').value = color;
+        document.getElementById('solidColorText').value = color;
+      } else if (currentMode === 'linear' || currentMode === 'radial') {
+        const stops = scheme.colors.map((color, i) => ({
+          color,
+          position: Math.round((i / (scheme.colors.length - 1)) * 100)
+        }));
+
+        if (currentMode === 'linear') {
+          linearStops = stops;
+          renderLinearStops();
+        } else {
+          radialStops = stops;
+          renderRadialStops();
+        }
+      } else if (currentMode === 'stripe' || currentMode === 'grid') {
+        document.getElementById(`${currentMode}Color1`).value = scheme.colors[0];
+        document.getElementById(`${currentMode}Color2`).value = scheme.colors[scheme.colors.length - 1];
+      }
+      updateCanvas();
+    }
+
+    // ==================== 渲染渐变色标 ====================
+    function renderLinearStops() {
+      const container = document.getElementById('linearStops');
+      container.innerHTML = linearStops.map((stop, index) => `
+        <div class="color-stop">
+          <div class="color-picker-wrap" style="width: 40px; height: 40px; flex-shrink: 0;">
+            <input type="color" value="${stop.color}" data-index="${index}" class="linear-stop-color">
+          </div>
+          <input type="number" class="input-field flex-1" value="${stop.position}" min="0" max="100" 
+                 data-index="${index}" class="linear-stop-pos">
+          <span class="text-xs" style="color: var(--muted);">%</span>
+          ${linearStops.length > 2 ? `
+            <button class="remove-btn" data-index="${index}" class="remove-linear-stop">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          ` : ''}
+        </div>
+      `).join('');
+
+      attachStopListeners(container, 'linear');
+    }
+
+    function renderRadialStops() {
+      const container = document.getElementById('radialStops');
+      container.innerHTML = radialStops.map((stop, index) => `
+        <div class="color-stop">
+          <div class="color-picker-wrap" style="width: 40px; height: 40px; flex-shrink: 0;">
+            <input type="color" value="${stop.color}" data-index="${index}" class="radial-stop-color">
+          </div>
+          <input type="number" class="input-field flex-1" value="${stop.position}" min="0" max="100" 
+                 data-index="${index}" class="radial-stop-pos">
+          <span class="text-xs" style="color: var(--muted);">%</span>
+          ${radialStops.length > 2 ? `
+            <button class="remove-btn" data-index="${index}" class="remove-radial-stop">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          ` : ''}
+        </div>
+      `).join('');
+
+      attachStopListeners(container, 'radial');
+    }
+
+    function attachStopListeners(container, type) {
+      const stops = type === 'linear' ? linearStops : radialStops;
+
+      container.querySelectorAll('input[type="color"]').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          stops[index].color = e.target.value;
+          updateCanvas();
+        });
+      });
+
+      container.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          stops[index].position = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+          updateCanvas();
+        });
+      });
+
+      container.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.currentTarget.dataset.index);
+          if (stops.length > 2) {
+            stops.splice(index, 1);
+            if (type === 'linear') renderLinearStops();
+            else renderRadialStops();
+            updateCanvas();
+          }
+        });
+      });
+    }
+
+    // ==================== 事件监听 ====================
+    function setupEventListeners() {
+      // 模式切换
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          currentMode = btn.dataset.mode;
+
+          document.querySelectorAll('.control-section').forEach(s => s.classList.remove('active'));
+          document.getElementById(`${currentMode}-controls`).classList.add('active');
+
+          updateCanvas();
+        });
+      });
+
+      // 纯色
+      document.getElementById('solidColor').addEventListener('input', (e) => {
+        document.getElementById('solidColorText').value = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('solidColorText').addEventListener('input', (e) => {
+        const color = e.target.value;
+        if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+          document.getElementById('solidColor').value = color;
+          updateCanvas();
+        }
+      });
+
+      // 线性渐变
+      document.getElementById('linearAngle').addEventListener('input', (e) => {
+        document.getElementById('linearAngleValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('addLinearStop').addEventListener('click', () => {
+        const lastPos = linearStops[linearStops.length - 1].position;
+        linearStops.push({
+          color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+          position: Math.min(100, lastPos + 10)
+        });
+        renderLinearStops();
+        updateCanvas();
+      });
+
+      renderLinearStops();
+
+      // 径向渐变
+      document.getElementById('radialRadius').addEventListener('input', (e) => {
+        document.getElementById('radialRadiusValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('radialCenterX').addEventListener('input', (e) => {
+        document.getElementById('radialCenterXValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('radialCenterY').addEventListener('input', (e) => {
+        document.getElementById('radialCenterYValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('addRadialStop').addEventListener('click', () => {
+        const lastPos = radialStops[radialStops.length - 1].position;
+        radialStops.push({
+          color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+          position: Math.min(100, lastPos + 10)
+        });
+        renderRadialStops();
+        updateCanvas();
+      });
+
+      renderRadialStops();
+
+      // 条纹
+      document.getElementById('stripeWidth').addEventListener('input', (e) => {
+        document.getElementById('stripeWidthValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('stripeAngle').addEventListener('input', (e) => {
+        document.getElementById('stripeAngleValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('stripeColor1').addEventListener('input', updateCanvas);
+      document.getElementById('stripeColor2').addEventListener('input', updateCanvas);
+
+      // 网格
+      document.getElementById('gridSize').addEventListener('input', (e) => {
+        document.getElementById('gridSizeValue').textContent = e.target.value;
+        updateCanvas();
+      });
+
+      document.getElementById('gridColor1').addEventListener('input', updateCanvas);
+      document.getElementById('gridColor2').addEventListener('input', updateCanvas);
+
+      // 尺寸预设
+      document.querySelectorAll('.size-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.size-preset').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          canvasWidth = parseInt(btn.dataset.w);
+          canvasHeight = parseInt(btn.dataset.h);
+          document.getElementById('customWidth').value = canvasWidth;
+          document.getElementById('customHeight').value = canvasHeight;
+          updateCanvas();
+        });
+      });
+
+      // 自定义尺寸
+      document.getElementById('customWidth').addEventListener('input', (e) => {
+        canvasWidth = Math.max(100, Math.min(8000, parseInt(e.target.value) || 1920));
+        document.querySelectorAll('.size-preset').forEach(b => b.classList.remove('active'));
+        updateCanvas();
+      });
+
+      document.getElementById('customHeight').addEventListener('input', (e) => {
+        canvasHeight = Math.max(100, Math.min(8000, parseInt(e.target.value) || 1080));
+        document.querySelectorAll('.size-preset').forEach(b => b.classList.remove('active'));
+        updateCanvas();
+      });
+
+      // 下载
+      document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+    }
+
+    // ==================== 更新画布 ====================
+    function updateCanvas() {
+      // 设置画布尺寸（预览用缩小比例）
+      const maxPreviewWidth = 800;
+      const scale = Math.min(1, maxPreviewWidth / canvasWidth);
+
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      canvas.style.width = `${canvasWidth * scale}px`;
+      canvas.style.height = `${canvasHeight * scale}px`;
+
+      sizeDisplay.textContent = `${canvasWidth} × ${canvasHeight}`;
+
+      // 清空画布
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // 根据模式绘制
+      switch (currentMode) {
+        case 'solid':
+          drawSolid();
+          break;
+        case 'linear':
+          drawLinearGradient();
+          break;
+        case 'radial':
+          drawRadialGradient();
+          break;
+        case 'stripe':
+          drawStripe();
+          break;
+        case 'grid':
+          drawGrid();
+          break;
+      }
+    }
+
+    // ==================== 绘制函数 ====================
+    function drawSolid() {
+      const color = document.getElementById('solidColor').value;
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+
+    function drawLinearGradient() {
+      const angle = parseInt(document.getElementById('linearAngle').value);
+      const angleRad = (angle - 90) * Math.PI / 180;
+
+      const centerX = canvasWidth / 2;
+      const centerY = canvasHeight / 2;
+      const length = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+
+      const x1 = centerX - Math.cos(angleRad) * length / 2;
+      const y1 = centerY - Math.sin(angleRad) * length / 2;
+      const x2 = centerX + Math.cos(angleRad) * length / 2;
+      const y2 = centerY + Math.sin(angleRad) * length / 2;
+
+      const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+
+      linearStops.forEach(stop => {
+        const pos = Math.max(0, Math.min(1, stop.position / 100));
+        gradient.addColorStop(pos, stop.color);
+      });
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+
+    function drawRadialGradient() {
+      const radiusPercent = parseInt(document.getElementById('radialRadius').value);
+      const centerXPercent = parseInt(document.getElementById('radialCenterX').value);
+      const centerYPercent = parseInt(document.getElementById('radialCenterY').value);
+
+      const centerX = canvasWidth * centerXPercent / 100;
+      const centerY = canvasHeight * centerYPercent / 100;
+      const maxRadius = Math.max(canvasWidth, canvasHeight);
+      const radius = Math.max(1, maxRadius * radiusPercent / 100);
+
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+
+      radialStops.forEach(stop => {
+        const pos = Math.max(0, Math.min(1, stop.position / 100));
+        gradient.addColorStop(pos, stop.color);
+      });
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+
+    function drawStripe() {
+      const stripeWidth = Math.max(5, parseInt(document.getElementById('stripeWidth').value));
+      const angle = parseInt(document.getElementById('stripeAngle').value);
+      const color1 = document.getElementById('stripeColor1').value;
+      const color2 = document.getElementById('stripeColor2').value;
+
+      const angleRad = angle * Math.PI / 180;
+
+      ctx.save();
+      ctx.translate(canvasWidth / 2, canvasHeight / 2);
+      ctx.rotate(angleRad);
+      ctx.translate(-canvasWidth, -canvasHeight);
+
+      const diagonal = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight) * 2;
+      const stripeCount = Math.ceil(diagonal / stripeWidth) + 2;
+
+      for (let i = -stripeCount; i < stripeCount; i++) {
+        ctx.fillStyle = i % 2 === 0 ? color1 : color2;
+        ctx.fillRect(-diagonal, i * stripeWidth, diagonal * 2, stripeWidth);
+      }
+
+      ctx.restore();
+    }
+
+    function drawGrid() {
+      const gridSize = Math.max(10, parseInt(document.getElementById('gridSize').value));
+      const color1 = document.getElementById('gridColor1').value;
+      const color2 = document.getElementById('gridColor2').value;
+
+      for (let y = 0; y < canvasHeight; y += gridSize) {
+        for (let x = 0; x < canvasWidth; x += gridSize) {
+          const isEven = (Math.floor(x / gridSize) + Math.floor(y / gridSize)) % 2 === 0;
+          ctx.fillStyle = isEven ? color1 : color2;
+          ctx.fillRect(x, y, gridSize, gridSize);
+        }
+      }
+    }
+
+    // ==================== 下载图片 ====================
+    function downloadImage() {
+      const link = document.createElement('a');
+      link.download = `color-image-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // ==================== 启动 ====================
+    init();
+  </script>
+</body>
+
+</html>
